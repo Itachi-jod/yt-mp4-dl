@@ -4,11 +4,11 @@ const cors = require("cors");
 
 const app = express();
 app.use(cors());
-app.use(express.json());
 
 app.get("/api/download", async (req, res) => {
   try {
     const videoUrl = req.query.url;
+
     if (!videoUrl) {
       return res.status(400).json({
         success: false,
@@ -19,7 +19,7 @@ app.get("/api/download", async (req, res) => {
 
     const apiUrl = "https://vapi.extensiondock.com/api/youtube/v4/info";
 
-    // Only send required headers. No garbage.
+    // Required browser-like headers ONLY
     const headers = {
       "Content-Type": "application/json",
       "Accept": "application/json",
@@ -29,15 +29,12 @@ app.get("/api/download", async (req, res) => {
         "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Mobile Safari/537.36"
     };
 
-    // Build minimal body EXACTLY like the real request
-    const body = {
-      url: videoUrl
-    };
+    // Backend will send the required POST request
+    const body = { url: videoUrl };
 
-    // Forward request
     const upstream = await axios.post(apiUrl, body, {
       headers,
-      timeout: 15000,
+      timeout: 20000,
       validateStatus: () => true
     });
 
@@ -46,27 +43,25 @@ app.get("/api/download", async (req, res) => {
         success: false,
         author: "ItachiXD",
         message: "Upstream request failed",
-        status: upstream.status,
-        data: upstream.data
+        upstream_status: upstream.status,
+        upstream_message: upstream.data
       });
     }
 
-    res.json({
+    return res.json({
       success: true,
       author: "ItachiXD",
       data: upstream.data
     });
 
   } catch (err) {
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       author: "ItachiXD",
-      message: "Server error",
+      message: "Internal server error",
       error: err.message
     });
   }
 });
 
-app.listen(3000, () => {
-  console.log("Server running...");
-});
+module.exports = app;
