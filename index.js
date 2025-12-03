@@ -1,66 +1,86 @@
 const express = require("express");
 const axios = require("axios");
 const cors = require("cors");
+const qs = require("querystring");
 
 const app = express();
 app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
+// Pretty print
+function pretty(obj) {
+  return JSON.stringify(obj, null, 2);
+}
+
+// Root
+app.get("/", (req, res) => {
+  res.setHeader("Content-Type", "application/json");
+  res.send(
+    pretty({
+      author: "ItachiXD",
+      status: "SocialFans Video Downloader API Running...",
+      usage: "/api/download?url=VIDEO_URL"
+    })
+  );
+});
+
+// Main GET API (converted from POST)
 app.get("/api/download", async (req, res) => {
-  try {
-    const videoUrl = req.query.url;
+  const videoUrl = req.query.url;
 
-    if (!videoUrl) {
-      return res.status(400).json({
-        success: false,
+  if (!videoUrl) {
+    res.setHeader("Content-Type", "application/json");
+    return res.status(400).send(
+      pretty({
         author: "ItachiXD",
-        message: "Missing ?url parameter"
-      });
-    }
+        success: false,
+        error: "Missing ?url="
+      })
+    );
+  }
 
-    const apiUrl = "https://vapi.extensiondock.com/api/youtube/v4/info";
+  try {
+    const postData = qs.stringify({
+      url: videoUrl
+    });
 
-    // Required browser-like headers ONLY
     const headers = {
-      "Content-Type": "application/json",
-      "Accept": "application/json",
-      "Origin": "https://devoice.io",
-      "Referer": "https://devoice.io/",
+      "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+      "Accept": "application/json, text/javascript, */*; q=0.01",
       "User-Agent":
-        "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Mobile Safari/537.36"
+        "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Mobile Safari/537.36",
+      "Origin": "https://socialfans.io",
+      "Referer": "https://socialfans.io/free-youtube-video-downloader",
+      "X-Requested-With": "XMLHttpRequest"
     };
 
-    // Backend will send the required POST request
-    const body = { url: videoUrl };
+    const apiRes = await axios.post(
+      "https://socialfans.io/get_social_video.php",
+      postData,
+      { headers }
+    );
 
-    const upstream = await axios.post(apiUrl, body, {
-      headers,
-      timeout: 20000,
-      validateStatus: () => true
-    });
-
-    if (upstream.status !== 200) {
-      return res.status(500).json({
-        success: false,
+    res.setHeader("Content-Type", "application/json");
+    return res.send(
+      pretty({
         author: "ItachiXD",
-        message: "Upstream request failed",
-        upstream_status: upstream.status,
-        upstream_message: upstream.data
-      });
-    }
-
-    return res.json({
-      success: true,
-      author: "ItachiXD",
-      data: upstream.data
-    });
-
+        success: true,
+        data: apiRes.data
+      })
+    );
   } catch (err) {
-    return res.status(500).json({
-      success: false,
-      author: "ItachiXD",
-      message: "Internal server error",
-      error: err.message
-    });
+    console.error("Error:", err.response?.data || err.message);
+
+    res.setHeader("Content-Type", "application/json");
+    return res.status(500).send(
+      pretty({
+        author: "ItachiXD",
+        success: false,
+        error: "Failed to fetch video",
+        details: err.response?.data || err.message
+      })
+    );
   }
 });
 
